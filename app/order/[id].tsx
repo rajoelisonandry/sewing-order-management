@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { OrderFormData } from '@/types/order';
@@ -28,14 +29,14 @@ export default function OrderFormScreen() {
     size: '',
     fabric_price: '',
     selling_price: '',
+    delivery_date: '',
   });
   const [loading, setLoading] = useState(false);
   const [calculatedProfit, setCalculatedProfit] = useState<number>(0);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
-    if (!isNew && id) {
-      fetchOrder();
-    }
+    if (!isNew && id) fetchOrder();
   }, [id]);
 
   useEffect(() => {
@@ -51,7 +52,6 @@ export default function OrderFormScreen() {
         .select('*')
         .eq('id', id)
         .maybeSingle();
-
       if (error) throw error;
       if (data) {
         setFormData({
@@ -61,6 +61,9 @@ export default function OrderFormScreen() {
           size: data.size,
           fabric_price: data.fabric_price.toString(),
           selling_price: data.selling_price.toString(),
+          delivery_date: data.delivery_date
+            ? data.delivery_date.split('T')[0]
+            : '',
         });
       }
     } catch (error) {
@@ -100,8 +103,8 @@ export default function OrderFormScreen() {
 
   const handleSave = async () => {
     if (!validateForm()) return;
-
     setLoading(true);
+
     try {
       const orderData = {
         client_name: formData.client_name.trim(),
@@ -111,20 +114,17 @@ export default function OrderFormScreen() {
         fabric_price: parseFloat(formData.fabric_price),
         selling_price: parseFloat(formData.selling_price),
         updated_at: new Date().toISOString(),
+        delivery_date: formData.delivery_date || null,
       };
 
       if (isNew) {
-        const { error } = await supabase
-          .from('orders')
-          .insert([orderData]);
-
+        const { error } = await supabase.from('orders').insert([orderData]);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('orders')
           .update(orderData)
           .eq('id', id);
-
         if (error) throw error;
       }
 
@@ -137,13 +137,26 @@ export default function OrderFormScreen() {
     }
   };
 
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      const formatted = selectedDate.toISOString().split('T')[0];
+      setFormData({ ...formData, delivery_date: formatted });
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={100}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+      keyboardVerticalOffset={100}
+    >
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+      >
         <View style={styles.form}>
+          {/* Nom client */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Nom du client *</Text>
             <TextInput
@@ -157,6 +170,7 @@ export default function OrderFormScreen() {
             />
           </View>
 
+          {/* Modèle */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Modèle *</Text>
             <TextInput
@@ -168,6 +182,7 @@ export default function OrderFormScreen() {
             />
           </View>
 
+          {/* Couleur */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Couleur du tissu *</Text>
             <TextInput
@@ -181,6 +196,7 @@ export default function OrderFormScreen() {
             />
           </View>
 
+          {/* Taille */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Taille *</Text>
             <View style={styles.sizeContainer}>
@@ -191,12 +207,14 @@ export default function OrderFormScreen() {
                     styles.sizeButton,
                     formData.size === size && styles.sizeButtonActive,
                   ]}
-                  onPress={() => setFormData({ ...formData, size })}>
+                  onPress={() => setFormData({ ...formData, size })}
+                >
                   <Text
                     style={[
                       styles.sizeButtonText,
                       formData.size === size && styles.sizeButtonTextActive,
-                    ]}>
+                    ]}
+                  >
                     {size}
                   </Text>
                 </TouchableOpacity>
@@ -211,8 +229,9 @@ export default function OrderFormScreen() {
             />
           </View>
 
+          {/* Prix du tissu */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Prix du tissu (€) *</Text>
+            <Text style={styles.label}>Prix du tissu (Ar) *</Text>
             <TextInput
               style={styles.input}
               value={formData.fabric_price}
@@ -225,8 +244,9 @@ export default function OrderFormScreen() {
             />
           </View>
 
+          {/* Prix de vente */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Prix de vente (€) *</Text>
+            <Text style={styles.label}>Prix de vente (Ar) *</Text>
             <TextInput
               style={styles.input}
               value={formData.selling_price}
@@ -239,29 +259,67 @@ export default function OrderFormScreen() {
             />
           </View>
 
+          {/* Date de livraison */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Date de livraison</Text>
+            <TouchableOpacity
+              style={styles.input}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text
+                style={{ color: formData.delivery_date ? '#111' : '#9ca3af' }}
+              >
+                {formData.delivery_date || 'Sélectionner une date'}
+              </Text>
+            </TouchableOpacity>
+            {showDatePicker && (
+              <DateTimePicker
+                value={
+                  formData.delivery_date
+                    ? new Date(formData.delivery_date)
+                    : new Date()
+                }
+                mode="date"
+                display="default"
+                onChange={handleDateChange}
+              />
+            )}
+          </View>
+
+          {/* Profit */}
           <View style={styles.profitContainer}>
             <Text style={styles.profitLabel}>Bénéfice estimé:</Text>
             <Text
               style={[
                 styles.profitValue,
-                calculatedProfit >= 0 ? styles.profitPositive : styles.profitNegative,
-              ]}>
-              {calculatedProfit.toFixed(2)} €
+                calculatedProfit >= 0
+                  ? styles.profitPositive
+                  : styles.profitNegative,
+              ]}
+            >
+              {calculatedProfit.toFixed(2)} Ar
             </Text>
           </View>
         </View>
       </ScrollView>
 
+      {/* Boutons */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={[styles.button, styles.cancelButton]}
-          onPress={() => router.back()}>
+          onPress={() => router.back()}
+        >
           <Text style={styles.cancelButtonText}>Annuler</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.button, styles.saveButton, loading && styles.disabledButton]}
+          style={[
+            styles.button,
+            styles.saveButton,
+            loading && styles.disabledButton,
+          ]}
           onPress={handleSave}
-          disabled={loading}>
+          disabled={loading}
+        >
           <Text style={styles.saveButtonText}>
             {loading ? 'Enregistrement...' : isNew ? 'Créer' : 'Modifier'}
           </Text>
@@ -328,8 +386,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   sizeButtonActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: '#7F3785',
+    borderColor: '#7F3785',
   },
   sizeButtonText: {
     fontSize: 16,
@@ -388,7 +446,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   saveButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#CC2C7F',
   },
   saveButtonText: {
     fontSize: 16,

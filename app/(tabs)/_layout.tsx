@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Package } from 'lucide-react-native';
+import { Package, BarChart2, User } from 'lucide-react-native';
 
 export default function TabLayout() {
   return (
@@ -7,7 +7,7 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: true,
         headerStyle: {
-          backgroundColor: '#2563eb',
+          backgroundColor: '#7F3785',
         },
         headerTintColor: '#fff',
         headerTitleStyle: {
@@ -18,9 +18,11 @@ export default function TabLayout() {
           borderTopWidth: 1,
           borderTopColor: '#e5e7eb',
         },
-        tabBarActiveTintColor: '#2563eb',
+        tabBarActiveTintColor: '#7F3785',
         tabBarInactiveTintColor: '#9ca3af',
-      }}>
+      }}
+    >
+      {/* Commandes */}
       <Tabs.Screen
         name="index"
         options={{
@@ -28,6 +30,26 @@ export default function TabLayout() {
           tabBarIcon: ({ size, color }) => (
             <Package size={size} color={color} />
           ),
+        }}
+      />
+
+      {/* Statistiques */}
+      <Tabs.Screen
+        name="stats"
+        options={{
+          title: 'Statistiques',
+          tabBarIcon: ({ size, color }) => (
+            <BarChart2 size={size} color={color} />
+          ),
+        }}
+      />
+
+      {/* Profil */}
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profil',
+          tabBarIcon: ({ size, color }) => <User size={size} color={color} />,
         }}
       />
     </Tabs>
