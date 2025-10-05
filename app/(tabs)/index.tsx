@@ -9,17 +9,20 @@ import {
   RefreshControl,
   Modal,
   ScrollView,
+  Image,
   TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Plus, CreditCard as Edit2, Trash2, X } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { supabase } from '@/lib/supabase';
+import ImageViewing from 'react-native-image-viewing';
 import { Order } from '@/types/order';
 
 export default function OrdersScreen() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -154,6 +157,14 @@ export default function OrdersScreen() {
           <Text style={styles.label}>Taille:</Text>
           <Text style={styles.value}>{item.size}</Text>
         </View>
+
+        {item.model_image ? (
+          <Image
+            source={{ uri: item.model_image }}
+            style={styles.cardImage}
+            resizeMode="cover"
+          />
+        ) : null}
       </View>
 
       <View style={styles.cardFooter}>
@@ -274,6 +285,17 @@ export default function OrdersScreen() {
                 <Text style={styles.modalTitle}>
                   Détails de {selectedOrder.client_name}
                 </Text>
+
+                {selectedOrder.model_image ? (
+                  <TouchableOpacity onPress={() => setImageViewerVisible(true)}>
+                    <Image
+                      source={{ uri: selectedOrder.model_image }}
+                      style={styles.modalImage}
+                      resizeMode="cover"
+                    />
+                  </TouchableOpacity>
+                ) : null}
+
                 <View style={styles.modalRow}>
                   <Text style={styles.modalLabel}>Modèle:</Text>
                   <Text style={styles.modalValue}>{selectedOrder.model}</Text>
@@ -289,7 +311,7 @@ export default function OrdersScreen() {
                   <Text style={styles.modalValue}>{selectedOrder.size}</Text>
                 </View>
                 <View style={styles.modalRow}>
-                  <Text style={styles.modalLabel}>Livraison:</Text>
+                  <Text style={styles.modalLabel}>Date de livraison:</Text>
                   <Text style={styles.modalValue}>
                     {selectedOrder.delivery_date
                       ? new Date(
@@ -298,6 +320,22 @@ export default function OrdersScreen() {
                       : '-'}
                   </Text>
                 </View>
+                <View style={styles.modalRow}>
+                  <Text style={styles.modalLabel}>Lieu:</Text>
+                  <Text style={styles.modalValue}>
+                    {selectedOrder.delivery_location
+                      ? selectedOrder.delivery_location
+                      : '-'}
+                  </Text>
+                </View>
+                {selectedOrder.order_count && (
+                  <View style={styles.modalRow}>
+                    <Text style={styles.modalLabel}>Quantité:</Text>
+                    <Text style={styles.modalValue}>
+                      {selectedOrder.order_count}
+                    </Text>
+                  </View>
+                )}
                 <View style={styles.cardFooter}>
                   <View style={styles.priceRow}>
                     <Text style={styles.priceLabel}>Prix du tissu:</Text>
@@ -325,10 +363,47 @@ export default function OrdersScreen() {
                     </Text>
                   </View>
                 </View>
+
+                <View style={styles.cardFooter}>
+                  <View style={[styles.priceRow, styles.profitRow]}>
+                    <Text style={styles.profitLabel}>Total à payer:</Text>
+                    <Text style={[styles.profitValue, styles.profitPositive]}>
+                      {selectedOrder.selling_price.toFixed(2)} Ar
+                    </Text>
+                  </View>
+                  <View style={styles.priceRow}>
+                    <Text style={styles.priceLabel}>Acompte:</Text>
+                    <Text style={styles.priceValue}>
+                      {selectedOrder.advance_payment
+                        ? `${selectedOrder.advance_payment.toFixed(2)} Ar`
+                        : '-'}
+                    </Text>
+                  </View>
+                  <View style={styles.priceRow}>
+                    <Text style={styles.priceLabel}>Reste à payer:</Text>
+                    <Text style={styles.priceValue}>
+                      {selectedOrder.advance_payment
+                        ? `${(
+                            selectedOrder.selling_price -
+                            selectedOrder.advance_payment
+                          ).toFixed(2)} Ar`
+                        : selectedOrder.selling_price.toFixed(2) + ' Ar'}
+                    </Text>
+                  </View>
+                </View>
               </ScrollView>
             </View>
           </View>
         </Modal>
+      )}
+
+      {selectedOrder?.model_image && (
+        <ImageViewing
+          images={[{ uri: selectedOrder.model_image }]}
+          imageIndex={0}
+          visible={imageViewerVisible}
+          onRequestClose={() => setImageViewerVisible(false)}
+        />
       )}
     </View>
   );
@@ -474,5 +549,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 8,
+  },
+  imageContainer: { marginBottom: 12, alignItems: 'center' },
+  cardImage: { width: '100%', height: 70, borderRadius: 8 },
+  modalImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    marginBottom: 16,
   },
 });

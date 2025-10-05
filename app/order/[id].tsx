@@ -9,13 +9,14 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { OrderFormData } from '@/types/order';
-
-const SIZES = ['S', 'M', 'L', 'XL'];
+import { FORM_STATUSES, SIZES } from '../constant/constant';
+import * as ImagePicker from 'expo-image-picker';
 
 export default function OrderFormScreen() {
   const router = useRouter();
@@ -30,6 +31,11 @@ export default function OrderFormScreen() {
     fabric_price: '',
     selling_price: '',
     delivery_date: '',
+    delivery_location: '',
+    order_count: '',
+    model_image: '',
+    advance_payment: '',
+    status: 0,
   });
   const [loading, setLoading] = useState(false);
   const [calculatedProfit, setCalculatedProfit] = useState<number>(0);
@@ -64,6 +70,11 @@ export default function OrderFormScreen() {
           delivery_date: data.delivery_date
             ? data.delivery_date.split('T')[0]
             : '',
+          delivery_location: data.delivery_location || '',
+          order_count: data.order_count?.toString() || '',
+          model_image: data.model_image || '',
+          advance_payment: data.advance_payment?.toString() || '',
+          status: data.status ?? 0,
         });
       }
     } catch (error) {
@@ -113,8 +124,18 @@ export default function OrderFormScreen() {
         size: formData.size.trim(),
         fabric_price: parseFloat(formData.fabric_price),
         selling_price: parseFloat(formData.selling_price),
-        updated_at: new Date().toISOString(),
         delivery_date: formData.delivery_date || null,
+        delivery_location: formData.delivery_location?.trim() || null,
+        order_count: formData.order_count
+          ? parseInt(formData.order_count, 10)
+          : null,
+        model_image: formData.model_image || null,
+        advance_payment: formData.advance_payment
+          ? parseFloat(formData.advance_payment)
+          : null,
+        status: formData.status ?? 0,
+        updated_at: new Date().toISOString(),
+        ...(isNew && { created_at: new Date().toISOString() }),
       };
 
       if (isNew) {
@@ -134,6 +155,28 @@ export default function OrderFormScreen() {
       Alert.alert('Erreur', 'Impossible de sauvegarder la commande');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const pickImage = async () => {
+    // Demander permission
+    const permissionResult =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permissionResult.granted) {
+      Alert.alert('Permission refusée', 'Accès à la galerie nécessaire !');
+      return;
+    }
+
+    // Ouvrir galerie
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      setFormData({ ...formData, model_image: result.assets[0].uri });
     }
   };
 
@@ -180,6 +223,26 @@ export default function OrderFormScreen() {
               placeholder="Ex: Robe longue"
               placeholderTextColor="#9ca3af"
             />
+          </View>
+
+          {/* Image du modèle */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Image du modèle</Text>
+            {formData.model_image ? (
+              <Image
+                source={{ uri: formData.model_image }}
+                style={styles.previewImage}
+              />
+            ) : (
+              <Text style={{ color: '#9ca3af' }}>
+                Aucune image sélectionnée
+              </Text>
+            )}
+            <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
+              <Text style={styles.imageButtonText}>
+                {formData.model_image ? "Changer l'image" : 'Choisir une image'}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Couleur */}
@@ -238,7 +301,7 @@ export default function OrderFormScreen() {
               onChangeText={(text) =>
                 setFormData({ ...formData, fabric_price: text })
               }
-              placeholder="Ex: 45.00"
+              placeholder="Ex: 45000"
               placeholderTextColor="#9ca3af"
               keyboardType="decimal-pad"
             />
@@ -253,9 +316,53 @@ export default function OrderFormScreen() {
               onChangeText={(text) =>
                 setFormData({ ...formData, selling_price: text })
               }
-              placeholder="Ex: 120.00"
+              placeholder="Ex: 120000"
               placeholderTextColor="#9ca3af"
               keyboardType="decimal-pad"
+            />
+          </View>
+
+          {/* Acompte */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Acompte (Ar)</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.advance_payment}
+              onChangeText={(text) =>
+                setFormData({ ...formData, advance_payment: text })
+              }
+              placeholder="Ex: 50000"
+              placeholderTextColor="#9ca3af"
+              keyboardType="decimal-pad"
+            />
+          </View>
+
+          {/* Nombre d'articles */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Quantité</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.order_count}
+              onChangeText={(text) =>
+                setFormData({ ...formData, order_count: text })
+              }
+              placeholder="Ex: 3"
+              placeholderTextColor="#9ca3af"
+              keyboardType="numeric"
+            />
+          </View>
+
+          {/* Lieu de livraison */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Lieu de livraison</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.delivery_location}
+              onChangeText={(text) =>
+                setFormData({ ...formData, delivery_location: text })
+              }
+              placeholder="Ex: Antananarivo"
+              placeholderTextColor="#9ca3af"
             />
           </View>
 
@@ -286,6 +393,33 @@ export default function OrderFormScreen() {
             )}
           </View>
 
+          {/* Statut */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Statut</Text>
+            <View style={styles.sizeContainer}>
+              {FORM_STATUSES.map((s) => (
+                <TouchableOpacity
+                  key={s.value}
+                  style={[
+                    styles.sizeButton,
+                    formData.status === s.value && styles.sizeButtonActive,
+                  ]}
+                  onPress={() => setFormData({ ...formData, status: s.value })}
+                >
+                  <Text
+                    style={[
+                      styles.sizeButtonText,
+                      formData.status === s.value &&
+                        styles.sizeButtonTextActive,
+                    ]}
+                  >
+                    {s.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
           {/* Profit */}
           <View style={styles.profitContainer}>
             <Text style={styles.profitLabel}>Bénéfice estimé:</Text>
@@ -300,6 +434,20 @@ export default function OrderFormScreen() {
               {calculatedProfit.toFixed(2)} Ar
             </Text>
           </View>
+
+          {/* Reste à payer */}
+          {formData.advance_payment && (
+            <View style={styles.profitContainer}>
+              <Text style={styles.profitLabel}>Reste à payer:</Text>
+              <Text style={[styles.profitValue, styles.remainingValue]}>
+                {(
+                  (parseFloat(formData.selling_price) || 0) -
+                  (parseFloat(formData.advance_payment) || 0)
+                ).toFixed(2)}{' '}
+                Ar
+              </Text>
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -330,17 +478,9 @@ export default function OrderFormScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f3f4f6',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 100,
-  },
+  container: { flex: 1, backgroundColor: '#f3f4f6' },
+  scrollView: { flex: 1 },
+  content: { padding: 16, paddingBottom: 100 },
   form: {
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -351,15 +491,8 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
-  },
+  inputGroup: { marginBottom: 20 },
+  label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 },
   input: {
     borderWidth: 1,
     borderColor: '#d1d5db',
@@ -369,34 +502,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     color: '#111827',
   },
-  inputMarginTop: {
-    marginTop: 8,
-  },
-  sizeContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
+  inputMarginTop: { marginTop: 8 },
+  sizeContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   sizeButton: {
-    flex: 1,
+    flexGrow: 1,
     paddingVertical: 12,
+    paddingHorizontal: 8,
     borderWidth: 1,
     borderColor: '#d1d5db',
     borderRadius: 8,
     alignItems: 'center',
     backgroundColor: '#fff',
   },
-  sizeButtonActive: {
-    backgroundColor: '#7F3785',
-    borderColor: '#7F3785',
-  },
-  sizeButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#6b7280',
-  },
-  sizeButtonTextActive: {
-    color: '#fff',
-  },
+  sizeButtonActive: { backgroundColor: '#7F3785', borderColor: '#7F3785' },
+  sizeButtonText: { fontSize: 14, fontWeight: '600', color: '#6b7280' },
+  sizeButtonTextActive: { color: '#fff' },
   profitContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -406,21 +526,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fafb',
     borderRadius: 8,
   },
-  profitLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  profitValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  profitPositive: {
-    color: '#059669',
-  },
-  profitNegative: {
-    color: '#dc2626',
-  },
+  profitLabel: { fontSize: 16, fontWeight: 'bold', color: '#111827' },
+  profitValue: { fontSize: 20, fontWeight: 'bold' },
+  profitPositive: { color: '#059669' },
+  profitNegative: { color: '#dc2626' },
   buttonContainer: {
     flexDirection: 'row',
     padding: 16,
@@ -440,20 +549,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#d1d5db',
   },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#6b7280',
+  cancelButtonText: { fontSize: 16, fontWeight: '600', color: '#6b7280' },
+  saveButton: { backgroundColor: '#CC2C7F' },
+  saveButtonText: { fontSize: 16, fontWeight: '600', color: '#fff' },
+  disabledButton: { opacity: 0.6 },
+  remainingValue: { color: '#7F3785' },
+  previewImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 12,
+    resizeMode: 'cover',
   },
-  saveButton: {
-    backgroundColor: '#CC2C7F',
+  imageButton: {
+    backgroundColor: '#7F3785',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
   },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+  imageButtonText: {
     color: '#fff',
-  },
-  disabledButton: {
-    opacity: 0.6,
+    fontWeight: '600',
   },
 });
