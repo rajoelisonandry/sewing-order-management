@@ -48,12 +48,20 @@ export default function StatsScreen() {
 
       setOrders(filtered);
 
-      const ordersCount = filtered.length;
-      const totalRevenue = filtered.reduce(
-        (sum, o) => sum + o.selling_price,
+      const ordersCount = filtered.reduce(
+        (sum, o) => sum + (o.order_count || 1),
         0
       );
-      const totalProfit = filtered.reduce((sum, o) => sum + o.profit, 0);
+
+      const totalRevenue = filtered.reduce(
+        (sum, o) => sum + o.selling_price * (o.order_count || 1),
+        0
+      );
+
+      const totalProfit = filtered.reduce(
+        (sum, o) => sum + o.profit * (o.order_count || 1),
+        0
+      );
 
       setStats({ ordersCount, totalRevenue, totalProfit });
     } catch (err) {

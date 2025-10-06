@@ -7,22 +7,21 @@ import {
   StyleSheet,
   Alert,
   RefreshControl,
-  Modal,
-  ScrollView,
   Image,
   TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Plus, CreditCard as Edit2, Trash2, X } from 'lucide-react-native';
+import { Plus, CreditCard as Edit2, Trash2 } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { supabase } from '@/lib/supabase';
-import ImageViewing from 'react-native-image-viewing';
 import { Order } from '@/types/order';
+import { getStatusByValue } from '../constant/constant';
+import OrderDetailModal from '../component/order/orderDetailModal';
+import { useFocusEffect } from 'expo-router';
 
 export default function OrdersScreen() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
-  const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -56,6 +55,12 @@ export default function OrdersScreen() {
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchOrders();
+    }, [])
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -176,6 +181,16 @@ export default function OrdersScreen() {
               : '-'}
           </Text>
         </View>
+        <View style={styles.row}>
+          <Text
+            style={[
+              styles.statusLabel,
+              { backgroundColor: getStatusByValue(item.status).color },
+            ]}
+          >
+            {getStatusByValue(item.status).label}
+          </Text>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -265,144 +280,11 @@ export default function OrdersScreen() {
         <Plus size={28} color="#fff" />
       </TouchableOpacity>
 
-      {/* Modal détails de commande */}
       {selectedOrder && (
-        <Modal
+        <OrderDetailModal
           visible={modalVisible}
-          animationType="none"
-          transparent={true}
-          onRequestClose={() => setModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setModalVisible(false)}
-              >
-                <X size={24} color="#111827" />
-              </TouchableOpacity>
-              <ScrollView>
-                <Text style={styles.modalTitle}>
-                  Détails de {selectedOrder.client_name}
-                </Text>
-
-                {selectedOrder.model_image ? (
-                  <TouchableOpacity onPress={() => setImageViewerVisible(true)}>
-                    <Image
-                      source={{ uri: selectedOrder.model_image }}
-                      style={styles.modalImage}
-                      resizeMode="cover"
-                    />
-                  </TouchableOpacity>
-                ) : null}
-
-                <View style={styles.modalRow}>
-                  <Text style={styles.modalLabel}>Modèle:</Text>
-                  <Text style={styles.modalValue}>{selectedOrder.model}</Text>
-                </View>
-                <View style={styles.modalRow}>
-                  <Text style={styles.modalLabel}>Couleur:</Text>
-                  <Text style={styles.modalValue}>
-                    {selectedOrder.fabric_color}
-                  </Text>
-                </View>
-                <View style={styles.modalRow}>
-                  <Text style={styles.modalLabel}>Taille:</Text>
-                  <Text style={styles.modalValue}>{selectedOrder.size}</Text>
-                </View>
-                <View style={styles.modalRow}>
-                  <Text style={styles.modalLabel}>Date de livraison:</Text>
-                  <Text style={styles.modalValue}>
-                    {selectedOrder.delivery_date
-                      ? new Date(
-                          selectedOrder.delivery_date
-                        ).toLocaleDateString()
-                      : '-'}
-                  </Text>
-                </View>
-                <View style={styles.modalRow}>
-                  <Text style={styles.modalLabel}>Lieu:</Text>
-                  <Text style={styles.modalValue}>
-                    {selectedOrder.delivery_location
-                      ? selectedOrder.delivery_location
-                      : '-'}
-                  </Text>
-                </View>
-                {selectedOrder.order_count && (
-                  <View style={styles.modalRow}>
-                    <Text style={styles.modalLabel}>Quantité:</Text>
-                    <Text style={styles.modalValue}>
-                      {selectedOrder.order_count}
-                    </Text>
-                  </View>
-                )}
-                <View style={styles.cardFooter}>
-                  <View style={styles.priceRow}>
-                    <Text style={styles.priceLabel}>Prix du tissu:</Text>
-                    <Text style={styles.priceValue}>
-                      {selectedOrder.fabric_price.toFixed(2)} Ar
-                    </Text>
-                  </View>
-                  <View style={styles.priceRow}>
-                    <Text style={styles.priceLabel}>Prix de vente:</Text>
-                    <Text style={styles.priceValue}>
-                      {selectedOrder.selling_price.toFixed(2)} Ar
-                    </Text>
-                  </View>
-                  <View style={[styles.priceRow, styles.profitRow]}>
-                    <Text style={styles.profitLabel}>Bénéfice:</Text>
-                    <Text
-                      style={[
-                        styles.profitValue,
-                        selectedOrder.profit >= 0
-                          ? styles.profitPositive
-                          : styles.profitNegative,
-                      ]}
-                    >
-                      {selectedOrder.profit.toFixed(2)} Ar
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.cardFooter}>
-                  <View style={[styles.priceRow, styles.profitRow]}>
-                    <Text style={styles.profitLabel}>Total à payer:</Text>
-                    <Text style={[styles.profitValue, styles.profitPositive]}>
-                      {selectedOrder.selling_price.toFixed(2)} Ar
-                    </Text>
-                  </View>
-                  <View style={styles.priceRow}>
-                    <Text style={styles.priceLabel}>Acompte:</Text>
-                    <Text style={styles.priceValue}>
-                      {selectedOrder.advance_payment
-                        ? `${selectedOrder.advance_payment.toFixed(2)} Ar`
-                        : '-'}
-                    </Text>
-                  </View>
-                  <View style={styles.priceRow}>
-                    <Text style={styles.priceLabel}>Reste à payer:</Text>
-                    <Text style={styles.priceValue}>
-                      {selectedOrder.advance_payment
-                        ? `${(
-                            selectedOrder.selling_price -
-                            selectedOrder.advance_payment
-                          ).toFixed(2)} Ar`
-                        : selectedOrder.selling_price.toFixed(2) + ' Ar'}
-                    </Text>
-                  </View>
-                </View>
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
-      )}
-
-      {selectedOrder?.model_image && (
-        <ImageViewing
-          images={[{ uri: selectedOrder.model_image }]}
-          imageIndex={0}
-          visible={imageViewerVisible}
-          onRequestClose={() => setImageViewerVisible(false)}
+          order={selectedOrder}
+          onClose={() => setModalVisible(false)}
         />
       )}
     </View>
@@ -516,32 +398,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptySubtext: { fontSize: 14, color: '#9ca3af', textAlign: 'center' },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    padding: 16,
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    maxHeight: '80%',
-  },
-  closeButton: { alignSelf: 'flex-end', marginBottom: 8 },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    color: '#111827',
-  },
-  modalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  modalLabel: { fontSize: 14, color: '#6b7280' },
-  modalValue: { fontSize: 14, fontWeight: '500', color: '#111827' },
+
   resetButton: {
     backgroundColor: '#CC2C7F',
     marginLeft: 8,
@@ -552,10 +409,12 @@ const styles = StyleSheet.create({
   },
   imageContainer: { marginBottom: 12, alignItems: 'center' },
   cardImage: { width: '100%', height: 70, borderRadius: 8 },
-  modalImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 12,
-    marginBottom: 16,
+  statusLabel: {
+    width: 65,
+    textAlign: 'center',
+    color: '#fff',
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderBlockColor: '#111827',
   },
 });
